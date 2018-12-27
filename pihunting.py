@@ -9,7 +9,7 @@ import os
 import socket
 import os
 
-def terajo():
+def te_rajo():
     print('''\t\t\t
    .~~.   .~~.
   '. \ ' ' / .'
